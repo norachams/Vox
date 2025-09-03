@@ -1,10 +1,13 @@
 "use client";
 
 import { Play } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function Onboarding() {
+  const router = useRouter();
+  
   const startNewChat = () => {
-    alert("Starting a new voice chat ✨");
+    router.push("/chat");
   };
 
   return (
