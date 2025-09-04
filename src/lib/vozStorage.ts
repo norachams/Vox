@@ -1,11 +1,8 @@
-// src/lib/vozStorage.ts
-// MVP localStorage helpers for chats + messages
-
 export type ChatSummary = {
     id: string;
     title: string;
-    createdAt: string;  // ISO
-    updatedAt: string;  // ISO
+    createdAt: string;  
+    updatedAt: string;  
     durationSec: number;
     lastMessagePreview: string;
   };
@@ -15,11 +12,11 @@ export type ChatSummary = {
     chatId: string;
     role: "user" | "assistant";
     text: string;
-    timestamp: string; // ISO
+    timestamp: string; 
   };
   
-  const CHATS_KEY = "voz:chats";                   // ChatSummary[]
-  const chatMsgsKey = (id: string) => `voz:chat:${id}:messages`; // ChatMessage[]
+  const CHATS_KEY = "voz:chats";                  
+  const chatMsgsKey = (id: string) => `voz:chat:${id}:messages`; 
   
   /** Safe localStorage (avoid SSR errors) */
   function getLS(): Storage | null {

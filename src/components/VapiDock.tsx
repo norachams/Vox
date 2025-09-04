@@ -71,9 +71,16 @@ export default function VapiDock() {
   const creatingRef = React.useRef(false);
   const autostartedRef = React.useRef(false);
 
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+
+
   const { chatId } = useParams<{ chatId: string }>();
 
-
+  React.useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [messages, liveAssistant, liveUser]);
 
   // init client (skips network in design mode)
   React.useEffect(() => {
@@ -262,12 +269,12 @@ const toggleMute = () => setMicMuted(!muted);
         <motion.div
             layout
             transition={{ type: "spring", stiffness: 220, damping: 26 }}
-            className={`grid gap-6 p-6 flex-1 ${captionsOn ? "md:grid-cols-2" : "grid-cols-1"}`}
+            className={`grid gap-6 p-6 flex-1 min-h-0 ${captionsOn ? "md:grid-cols-2" : "grid-cols-1"}`}
             >           
          <motion.div
             layout
             transition={{ type: "spring", stiffness: 220, damping: 26 }}
-            className="w-full h-full flex flex-col items-center justify-center rounded-2xl "
+            className="w-full h-full min-h-0 flex flex-col items-center justify-center rounded-2xl"
             >
             <TalkingBlob active={speaking || !connected} size={220} />
             <div className="mt-4 flex items-center gap-3">
@@ -307,8 +314,9 @@ const toggleMute = () => setMicMuted(!muted);
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 24 }}
                     transition={{ type: "spring", stiffness: 260, damping: 28 }}
-                    className="rounded-2xl bg-white shadow-inner p-4 overflow-y-auto"
+                    className="rounded-2xl bg-white shadow-inner p-4 flex flex-col h-full min-h-0"
                     >
+            <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto"> 
             {messages.length === 0 && !liveAssistant && !liveUser ? (
               <p className="text-neutral-600 text-sm m-0">
                 {connected ? "Conversation will appear here…" : "Preparing the call…"}
@@ -348,9 +356,11 @@ const toggleMute = () => setMicMuted(!muted);
                 )}
               </ul>
             )}
+            </div>
             </motion.div>
           )}
           </AnimatePresence>
+          
        </motion.div>
       </div>
     </div>
