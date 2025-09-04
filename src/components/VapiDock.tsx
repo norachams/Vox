@@ -1,8 +1,10 @@
 "use client";
 import React from "react";
 import Vapi from "@vapi-ai/web";
-import { Mic, MicOff, Captions } from "lucide-react";
+import { Mic, MicOff, Captions, X } from "lucide-react";
 import TalkingBlob from "@/components/TalkingBlob";
+import { motion, AnimatePresence } from "framer-motion";
+
 
 type Msg = { id: string; role: "user" | "assistant"; text: string };
 type VapiMessage = {
@@ -46,7 +48,7 @@ export default function VapiDock() {
   const [liveUser, setLiveUser] = React.useState<string>("");
 
   // captions actions
-  const [captionsOn, setCaptionsOn] = React.useState(true);
+  const [captionsOn, setCaptionsOn] = React.useState(false);
 
   // for mute feature
   const [muted, setMuted] = React.useState(false);
@@ -219,7 +221,6 @@ const toggleMute = () => setMicMuted(!muted);
               <div className="font-semibold text-primary">
                 {connected ? (speaking ? "Assistant speaking…" : "Listening…") : "Connecting…"}
               </div>
-              <div className="text-xs text-neutral-500">Voz Assistant</div>
             </div>
           </div>
           {/* Captions button (ON = showing captions panel) */}
@@ -243,8 +244,16 @@ const toggleMute = () => setMicMuted(!muted);
         </div>
 
         {/* Body */}
-        <div className="grid md:grid-cols-2 gap-6 p-6 flex-1">
-          <div className="w-full h-full flex flex-col items-center justify-center rounded-2xl bg-white/70"> 
+        <motion.div
+            layout
+            transition={{ type: "spring", stiffness: 220, damping: 26 }}
+            className={`grid gap-6 p-6 flex-1 ${captionsOn ? "md:grid-cols-2" : "grid-cols-1"}`}
+            >           
+         <motion.div
+            layout
+            transition={{ type: "spring", stiffness: 220, damping: 26 }}
+            className="w-full h-full flex flex-col items-center justify-center rounded-2xl "
+            >
             <TalkingBlob active={speaking || !connected} size={220} />
             {/* Mute under the blob */}
             <button
@@ -260,12 +269,20 @@ const toggleMute = () => setMicMuted(!muted);
                 >
                 {muted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
               </button>
-          </div>
+              </motion.div>
 
           
-
-          {captionsOn && (
-          <div className="rounded-2xl bg-white shadow-inner p-4 overflow-y-auto">
+              <AnimatePresence initial={false} mode="popLayout">
+                {captionsOn && (
+                    <motion.div
+                    key="captions"
+                    layout
+                    initial={{ opacity: 0, x: 24 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 24 }}
+                    transition={{ type: "spring", stiffness: 260, damping: 28 }}
+                    className="rounded-2xl bg-white shadow-inner p-4 overflow-y-auto"
+                    >
             {messages.length === 0 && !liveAssistant && !liveUser ? (
               <p className="text-neutral-600 text-sm m-0">
                 {connected ? "Conversation will appear here…" : "Preparing the call…"}
@@ -305,9 +322,10 @@ const toggleMute = () => setMicMuted(!muted);
                 )}
               </ul>
             )}
-            </div>
+            </motion.div>
           )}
-        </div>
+          </AnimatePresence>
+       </motion.div>
       </div>
     </div>
   );

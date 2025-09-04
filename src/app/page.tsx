@@ -18,12 +18,7 @@ export default function Onboarding() {
           <div aria-hidden className="h-9 w-9 rounded-full bg-teal" />
           <h1 className="text-2xl font-semibold tracking-tight text-primary">Voz</h1>
         </div>
-        <button
-          className="rounded-full px-4 py-2 text-sm font-medium shadow bg-accent text-primary"
-          onClick={() => alert("Open settings")}
-        >
-          Settings
-        </button>
+      
       </header>
 
       {/* Main Hero */}
