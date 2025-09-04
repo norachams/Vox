@@ -1,13 +1,35 @@
 "use client";
 
-import { Play } from "lucide-react";
+import { Play,  Trash2, ArrowRight} from "lucide-react";
 import { useRouter } from "next/navigation";
+import { createChat, listChats, deleteChat, type ChatSummary } from "@/lib/vozStorage";
+import * as React from "react";
+
+
 
 export default function Onboarding() {
   const router = useRouter();
+  const [chats, setChats] = React.useState<ChatSummary[]>([]);
+
+  // Load chats on mount, and refresh when window regains focus (after ending a call)
+  React.useEffect(() => {
+    const load = () => setChats(listChats());
+    load();
+    window.addEventListener("focus", load);
+    return () => window.removeEventListener("focus", load);
+  }, []);
+
+
   
   const startNewChat = () => {
-    router.push("/chat");
+    const chat = createChat();                    
+    router.push(`/chat/${chat.id}?autostart=1`);
+  };
+
+  const openChat = (id: string) => router.push(`/chat/${id}`);
+  const removeChat = (id: string) => {
+    deleteChat(id);
+    setChats(listChats());
   };
 
   return (
@@ -39,6 +61,58 @@ export default function Onboarding() {
           </button>
         </div>
       </main>
+      
+       {/* Recent chats */}
+       <section className="px-8 pb-12">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-primary">Recent voice chats</h3>
+          {chats.length > 0 && (
+            <span className="text-sm text-neutral">{chats.length}</span>
+          )}
+        </div>
+
+        {chats.length === 0 ? (
+          <p className="text-neutral">No chats yet. Start one above.</p>
+        ) : (
+          <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {chats.map((c) => (
+              <li
+                key={c.id}
+                className="rounded-xl bg-white/80 border border-black/5 shadow-sm p-4 flex items-center justify-between"
+              >
+                <div className="min-w-0">
+                  <div className="font-medium text-primary truncate">{c.title}</div>
+                  <div className="text-xs text-neutral truncate">
+                    {new Date(c.updatedAt).toLocaleString()}
+                  </div>
+                  {c.lastMessagePreview && (
+                    <div className="text-xs text-neutral mt-1 line-clamp-2">
+                      {c.lastMessagePreview}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => openChat(c.id)}
+                    className="rounded-full px-3 py-1 text-sm bg-accent text-primary shadow flex items-center gap-1"
+                    title="Continue"
+                  >
+                    Continue <ArrowRight className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => removeChat(c.id)}
+                    className="rounded-full p-2 bg-white text-primary border border-black/10 hover:bg-bg"
+                    title="Delete"
+                    aria-label="Delete chat"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }

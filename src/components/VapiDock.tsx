@@ -4,7 +4,8 @@ import Vapi from "@vapi-ai/web";
 import { Mic, MicOff, Captions, X } from "lucide-react";
 import TalkingBlob from "@/components/TalkingBlob";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRouter } from "next/navigation";
+import { useRouter,useParams } from "next/navigation";
+import { appendFinalMessage } from "@/lib/vozStorage";
 
 type Msg = { id: string; role: "user" | "assistant"; text: string };
 type VapiMessage = {
@@ -36,7 +37,7 @@ export default function VapiDock() {
   
   const endAndExit = async () => {
     try {
-      await stop();        // end the call (handles designMode too)
+      await stop();        
     } finally {
       router.push("/");    // go back to the homepage
     }
@@ -63,12 +64,15 @@ export default function VapiDock() {
   // for mute feature
   const [muted, setMuted] = React.useState(false);
 
-  // track current utterance ids (if Vapi sends them)
+  // track current ids 
   const currentAssistantId = React.useRef<string | null>(null);
   const currentUserId = React.useRef<string | null>(null);
 
   const creatingRef = React.useRef(false);
   const autostartedRef = React.useRef(false);
+
+  const { chatId } = useParams<{ chatId: string }>();
+
 
 
   // init client (skips network in design mode)
@@ -127,6 +131,9 @@ export default function VapiDock() {
             if (last && last.role === "assistant" && last.text === m.transcript) return prev;
             return [...prev, { id: rid(), role: "assistant", text: m.transcript! }];
           });
+          if (!designMode && chatId) {
+            appendFinalMessage(chatId, m.role as "user" | "assistant", m.transcript!);
+          }
           setLiveAssistant("");
           currentAssistantId.current = null;
         }
@@ -144,6 +151,9 @@ export default function VapiDock() {
           if (last && last.role === "user" && last.text === m.transcript) return prev;
           return [...prev, { id: rid(), role: "user", text: m.transcript! }];
         });
+        if (!designMode && chatId) {
+            appendFinalMessage(chatId, m.role as "user" | "assistant", m.transcript!);
+          }
         setLiveUser("");
         currentUserId.current = null;
       }
@@ -190,10 +200,8 @@ export default function VapiDock() {
     if (vapi) await vapi.stop();
   };
 
-  // NEW: toggle captions (for now it just hides/shows the panel; animations next step)
 const toggleCaptions = () => setCaptionsOn((v) => !v);
 
-// NEW: mute/unmute mic (safe no-op in design mode; try common SDK methods otherwise)
 const setMicMuted = async (next: boolean) => {
   setMuted(next);
   if (designMode) return; // don't spend credits / don't call SDK in design mode
@@ -278,7 +286,7 @@ const toggleMute = () => setMicMuted(!muted);
                     >
                     {muted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
                 </button>
-                  {/* End (X) on the LEFT */}
+                  {/* End (X) on the RIGHT */}
                   <button
                     onClick={endAndExit}
                     title="End call"

@@ -7,11 +7,8 @@ type Props = {
 };
 
 export default function TalkingBlob({ active = false, size = 180 }: Props) {
-  // go back to this to see if you can make it looks better and more dynamic
+  // note to self: go back to this to see if you can make it looks better and more dynamic
   const energy = useSpring(active ? 1 : 0, { stiffness: 140, damping: 18 });
-//   const scale  = useTransform(energy, [0, 1], [1, 1.18]);           // core grow
-//   const rotate = useTransform(energy, [0, 1], [0, 10]);             // subtle tilt
-//   const glow   = useTransform(energy, [0, 1], [6, 24]);             // drop-shadow
   const scale  = useTransform(energy, [0, 1], [1, 1]);
   const rotate = useTransform(energy, [0, 1], [0, 4]);
   const glow   = useTransform(energy, [0, 1], [6, 10]);
