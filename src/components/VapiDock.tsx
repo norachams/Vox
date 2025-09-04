@@ -4,7 +4,7 @@ import Vapi from "@vapi-ai/web";
 import { Mic, MicOff, Captions, X } from "lucide-react";
 import TalkingBlob from "@/components/TalkingBlob";
 import { motion, AnimatePresence } from "framer-motion";
-
+import { useRouter } from "next/navigation";
 
 type Msg = { id: string; role: "user" | "assistant"; text: string };
 type VapiMessage = {
@@ -32,6 +32,16 @@ const rid = () =>
   (globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2));
 
 export default function VapiDock() {
+  const router = useRouter();
+  
+  const endAndExit = async () => {
+    try {
+      await stop();        // end the call (handles designMode too)
+    } finally {
+      router.push("/");    // go back to the homepage
+    }
+  };
+
   const apiKey = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY!;
   const assistantId = process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID!;
   const designMode = process.env.NEXT_PUBLIC_VAPI_DISABLED === "true";
@@ -237,10 +247,7 @@ const toggleMute = () => setMicMuted(!muted);
                 >
                 <Captions className="h-5 w-5" />
             </button>
-            {/* End chat button */}
-          <button onClick={stop} className="text-sm rounded-full px-3 py-1 bg-accent text-primary shadow">
-            End
-          </button>
+           
         </div>
 
         {/* Body */}
@@ -255,20 +262,31 @@ const toggleMute = () => setMicMuted(!muted);
             className="w-full h-full flex flex-col items-center justify-center rounded-2xl "
             >
             <TalkingBlob active={speaking || !connected} size={220} />
-            {/* Mute under the blob */}
-            <button
-                onClick={toggleMute}
-                aria-pressed={muted}
-                title={muted ? "Unmute mic" : "Mute mic"}
-                className={[
-                    "rounded-full p-3 mt-36 shadow border transition",
-                    muted
-                    ? "bg-neutral text-white border-neutral"
-                    : "bg-primary text-white border-primary hover:opacity-90"
-                ].join(" ")}
-                >
-                {muted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-              </button>
+            <div className="mt-4 flex items-center gap-3">
+              
+                {/* Mute under the blob */}
+                <button
+                    onClick={toggleMute}
+                    aria-pressed={muted}
+                    title={muted ? "Unmute mic" : "Mute mic"}
+                    className={[
+                        "rounded-full p-3 mt-36 shadow border transition",
+                        muted
+                        ? "bg-neutral text-white border-neutral"
+                        : "bg-primary text-white border-primary hover:opacity-90"
+                    ].join(" ")}
+                    >
+                    {muted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                </button>
+                  {/* End (X) on the LEFT */}
+                  <button
+                    onClick={endAndExit}
+                    title="End call"
+                    className="rounded-full p-3 shadow border transition mt-36 w-12 h-12 grid place-items-center bg-white text-primary border-black/10 hover:bg-bg"
+                    >
+                <X className="h-5 w-5" />
+                </button>
+                </div>
               </motion.div>
 
           
