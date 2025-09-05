@@ -133,7 +133,6 @@ export default function VapiDock() {
       setMessages([]);
       currentAssistantId.current = null;
       currentUserId.current = null;
-  
 
       try {
         const started = callStartedAtMs.current;
@@ -230,7 +229,7 @@ export default function VapiDock() {
         client.stop();
       } catch {}
     };
-  },);
+  }, [apiKey, designMode, liveAssistant, chatId]);
 
   // auto-start once (design mode OR once vapi is ready)
   React.useEffect(() => {
@@ -253,18 +252,7 @@ export default function VapiDock() {
     await vapi.start(assistantId);
   };
 
-  const stop = async () => {
-    if (designMode) {
-      if (window.__vozDesignTimer) clearInterval(window.__vozDesignTimer);
-      setConnected(false);
-      setSpeaking(false);
-      setMessages([]);
-      setLiveAssistant("");
-      setLiveUser("");
-      return;
-    }
-    if (vapi) await vapi.stop();
-  };
+  
 
 const toggleCaptions = () => setCaptionsOn((v) => !v);
 
