@@ -5,7 +5,8 @@ import { Mic, MicOff, Captions, X } from "lucide-react";
 import TalkingBlob from "@/components/TalkingBlob";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter,useParams } from "next/navigation";
-import { appendFinalMessage } from "@/lib/vozStorage";
+import { appendFinalMessage,finalizeDuration,deleteChat } from "@/lib/vozStorage";
+
 
 type Msg = { id: string; role: "user" | "assistant"; text: string };
 type VapiMessage = {
@@ -35,13 +36,33 @@ const rid = () =>
 export default function VapiDock() {
   const router = useRouter();
   
-  const endAndExit = async () => {
-    try {
-      await stop();        
-    } finally {
-      router.push("/");    // go back to the homepage
+  const endAndExit = () => {
+    
+    if (!finalizedRef.current) {
+      finalizedRef.current = true;
+  
+      const started = callStartedAtMs.current;
+      callStartedAtMs.current = null;
+  
+      if (chatId) {
+        if (designMode) {
+          deleteChat(chatId);
+        } else {
+          const durSec = started ? Math.max(0, Math.round((Date.now() - started) / 1000)) : 0;
+          const keep = hadAnyVoice.current && durSec >= MIN_SAVE_SECONDS;
+          if (keep) {
+            finalizeDuration(chatId, durSec);
+          } else {
+            deleteChat(chatId);
+          }
+        }
+      }
+      hadAnyVoice.current = false;
     }
+    try { vapi?.stop(); } catch {}
+    router.push(`/?t=${Date.now()}`);
   };
+  
 
   const apiKey = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY!;
   const assistantId = process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID!;
@@ -73,6 +94,13 @@ export default function VapiDock() {
 
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
+  // tracking time and if anyone spoke 
+  const callStartedAtMs = React.useRef<number | null>(null);
+  const hadAnyVoice = React.useRef(false); 
+
+  const MIN_SAVE_SECONDS = 10;                 
+  const finalizedRef = React.useRef(false);    
+
 
   const { chatId } = useParams<{ chatId: string }>();
 
@@ -90,7 +118,13 @@ export default function VapiDock() {
     const client = new Vapi(apiKey);
     setVapi(client);
 
-    client.on("call-start", () => setConnected(true));
+    client.on("call-start", () => {
+      setConnected(true);
+      callStartedAtMs.current = Date.now(); 
+      hadAnyVoice.current = false;  
+      finalizedRef.current = false;        
+    });
+
     client.on("call-end", () => {
       setConnected(false);
       setSpeaking(false);
@@ -99,9 +133,32 @@ export default function VapiDock() {
       setMessages([]);
       currentAssistantId.current = null;
       currentUserId.current = null;
+  
+
+      try {
+        const started = callStartedAtMs.current;
+        callStartedAtMs.current = null;
+    
+        if (!designMode && chatId && started) {
+          const durSec = Math.max(0, Math.round((Date.now() - started) / 1000));
+          const keep = hadAnyVoice.current && durSec >= MIN_SAVE_SECONDS;
+          if (keep) {
+            finalizeDuration(chatId, durSec);
+          } else {
+            deleteChat(chatId);
+          }
+        }
+      } finally {
+        hadAnyVoice.current = false;
+      }
     });
 
-    client.on("speech-start", () => setSpeaking(true));
+    client.on("speech-start", () => {
+      setSpeaking(true);
+      hadAnyVoice.current = true;
+    });
+
+
 
     // When speech ends, if we never got a "final" flag, commit the live bubble
     client.on("speech-end", () => {
@@ -141,6 +198,7 @@ export default function VapiDock() {
           if (!designMode && chatId) {
             appendFinalMessage(chatId, m.role as "user" | "assistant", m.transcript!);
           }
+          hadAnyVoice.current = true; 
           setLiveAssistant("");
           currentAssistantId.current = null;
         }
@@ -161,6 +219,7 @@ export default function VapiDock() {
         if (!designMode && chatId) {
             appendFinalMessage(chatId, m.role as "user" | "assistant", m.transcript!);
           }
+        hadAnyVoice.current = true;
         setLiveUser("");
         currentUserId.current = null;
       }
@@ -171,7 +230,7 @@ export default function VapiDock() {
         client.stop();
       } catch {}
     };
-  }, [apiKey, designMode, liveAssistant]);
+  },);
 
   // auto-start once (design mode OR once vapi is ready)
   React.useEffect(() => {
@@ -230,7 +289,6 @@ const setMicMuted = async (next: boolean) => {
 };
 
 const toggleMute = () => setMicMuted(!muted);
-
 
   return (
     <div className="fixed inset-0 z-[1000] font-sans bg-bg">
