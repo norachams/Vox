@@ -4,9 +4,10 @@ import Vapi from "@vapi-ai/web";
 import { Mic, MicOff, Captions, X } from "lucide-react";
 import TalkingBlob from "@/components/TalkingBlob";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRouter,useParams } from "next/navigation";
-import { appendFinalMessage,finalizeDuration,deleteChat,renameChat } from "@/lib/vozStorage";
+import { useRouter,useParams,useSearchParams } from "next/navigation";
+import { appendFinalMessage,finalizeDuration,deleteChat,renameChat,listMessages } from "@/lib/vozStorage";
 import { smartTitle } from "@/lib/smartTitle";
+
 
 
 
@@ -37,6 +38,11 @@ const rid = () =>
 
 export default function VapiDock() {
   const router = useRouter();
+
+  const searchParams = useSearchParams();
+  const resume = searchParams.get("resume") === "1";
+  const wantCaptions = searchParams.get("captions") === "1";
+
   
   const endAndExit = () => {
     
@@ -77,6 +83,10 @@ export default function VapiDock() {
   // committed messages (final only)
   const [messages, setMessages] = React.useState<Msg[]>([]);
 
+  const messagesRef = React.useRef<Msg[]>([]);
+  React.useEffect(() => { messagesRef.current = messages; }, [messages]);
+
+
   // live partials (one bubble per speaker)
   const [liveAssistant, setLiveAssistant] = React.useState<string>("");
   const [liveUser, setLiveUser] = React.useState<string>("");
@@ -109,6 +119,20 @@ export default function VapiDock() {
 
 
   const { chatId } = useParams<{ chatId: string }>();
+
+  // Load saved transcript for this chat so captions show history
+  React.useEffect(() => {
+    if (!chatId) return;
+    const past = listMessages(chatId);
+    if (past.length) {
+      // normalize to your Msg shape
+      setMessages(past.map(m => ({ id: m.id, role: m.role, text: m.text })));
+    }
+    // open captions automatically if requested or if there is history
+    if (wantCaptions || past.length) setCaptionsOn(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatId]);
+
 
   const tryNameChat = React.useCallback(() => {
     if (hasNamedRef.current || !chatId) return;
@@ -152,7 +176,6 @@ export default function VapiDock() {
       setSpeaking(false);
       setLiveAssistant("");
       setLiveUser("");
-      setMessages([]);
       currentAssistantId.current = null;
       currentUserId.current = null;
 
@@ -272,6 +295,14 @@ export default function VapiDock() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [designMode, vapi]);
 
+  function buildRecap(msgs: Msg[]) {
+    if (!msgs.length) return "";
+    // take last ~6 bubbles and compress; keep it short to avoid rambling
+    const last = msgs.slice(-6).map(m => `${m.role === "user" ? "User" : "AI"}: ${m.text}`).join(" | ");
+    return `Quick recap of our last session: ${last}. Please pick up where we left off.`;
+  }
+  
+
   const start = async () => {
     if (designMode) {
       setConnected(true);
@@ -281,6 +312,17 @@ export default function VapiDock() {
     }
     if (!vapi || !assistantId) return;
     await vapi.start(assistantId);
+    // If we came from "Continue", give the model a quick recap
+  if (resume) {
+    const recap = buildRecap(messagesRef.current);
+    if (recap) {
+      try {
+        // Vapi supports sending text input to the assistant
+        // (If your SDK version differs, this no-op won't break anything.)
+        vapi.send({ type: "say", message: recap });
+      } catch {}
+    }
+  }
   };
 
   

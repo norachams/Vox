@@ -116,7 +116,7 @@ export default function Onboarding() {
       {/* Hero */}
       <main className="flex-1 w-full px-8 pt-2 pb-12 flex flex-col items-center justify-center">
         <h2 className="text-4xl sm:text-5xl font-bold text-center text-primary mb-4">
-          Tap to start a new chat
+          Tap to Start a New Chat
         </h2>
         <p className="text-center text-neutral max-w-2xl mb-8 text-lg">
           Voz is like an assistant. Ask him anything!
@@ -133,7 +133,7 @@ export default function Onboarding() {
       {/* Recent chats */}
       <section className="px-8 pb-12">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-primary">Recent voice chats</h3>
+          <h3 className="text-lg font-semibold text-primary">Recent Chats</h3>
           {chats.length > 0 && <span className="text-sm text-neutral">{chats.length}</span>}
         </div>
 
