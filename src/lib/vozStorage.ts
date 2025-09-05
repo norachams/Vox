@@ -65,7 +65,7 @@ export type ChatSummary = {
     const createdAt = nowISO();
     const chat: ChatSummary = {
       id,
-      title: initialTitle || `New chat — ${new Date().toLocaleDateString()}`,
+      title: initialTitle || `${new Date().toLocaleDateString()}`,
       createdAt,
       updatedAt: createdAt,
       durationSec: 0,
@@ -128,3 +128,7 @@ export type ChatSummary = {
     ls.removeItem(chatMsgsKey(chatId));
   }
   
+
+  export function isDefaultTitle(c: ChatSummary) {
+    return c.title === new Date(c.createdAt).toLocaleDateString();
+  }

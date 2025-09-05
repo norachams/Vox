@@ -5,7 +5,9 @@ import { Mic, MicOff, Captions, X } from "lucide-react";
 import TalkingBlob from "@/components/TalkingBlob";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter,useParams } from "next/navigation";
-import { appendFinalMessage,finalizeDuration,deleteChat } from "@/lib/vozStorage";
+import { appendFinalMessage,finalizeDuration,deleteChat,renameChat } from "@/lib/vozStorage";
+import { smartTitle } from "@/lib/smartTitle";
+
 
 
 type Msg = { id: string; role: "user" | "assistant"; text: string };
@@ -101,8 +103,25 @@ export default function VapiDock() {
   const MIN_SAVE_SECONDS = 10;                 
   const finalizedRef = React.useRef(false);    
 
+  const hasNamedRef = React.useRef(false); 
+  const firstUserFinalRef = React.useRef<string | null>(null);
+  const firstAssistantFinalRef = React.useRef<string | null>(null);
+
 
   const { chatId } = useParams<{ chatId: string }>();
+
+  const tryNameChat = React.useCallback(() => {
+    if (hasNamedRef.current || !chatId) return;
+    const title = smartTitle(
+      firstUserFinalRef.current ?? "",
+      firstAssistantFinalRef.current ?? ""
+    );
+    if (title?.trim()) {
+      renameChat(chatId, title.trim());
+      hasNamedRef.current = true;
+    }
+  }, [chatId]);
+  
 
   React.useEffect(() => {
     const el = scrollRef.current;
@@ -122,7 +141,10 @@ export default function VapiDock() {
       setConnected(true);
       callStartedAtMs.current = Date.now(); 
       hadAnyVoice.current = false;  
-      finalizedRef.current = false;        
+      finalizedRef.current = false; 
+      hasNamedRef.current = false;
+      firstUserFinalRef.current = null;
+      firstAssistantFinalRef.current = null;       
     });
 
     client.on("call-end", () => {
@@ -189,18 +211,23 @@ export default function VapiDock() {
         }
 
         if (isFinal) {
-          setMessages((prev) => {
+          // capture first assistant final + maybe name
+          if (!firstAssistantFinalRef.current) firstAssistantFinalRef.current = m.transcript!;
+          tryNameChat();
+        
+          setMessages(prev => {
             const last = prev[prev.length - 1];
             if (last && last.role === "assistant" && last.text === m.transcript) return prev;
             return [...prev, { id: rid(), role: "assistant", text: m.transcript! }];
           });
           if (!designMode && chatId) {
-            appendFinalMessage(chatId, m.role as "user" | "assistant", m.transcript!);
+            appendFinalMessage(chatId, "assistant", m.transcript!);
           }
-          hadAnyVoice.current = true; 
+          hadAnyVoice.current = true;
           setLiveAssistant("");
           currentAssistantId.current = null;
         }
+        
         return;
       }
 
@@ -210,14 +237,18 @@ export default function VapiDock() {
         currentUserId.current = m.utteranceId;
       }
       if (isFinal) {
-        setMessages((prev) => {
+        // capture first user final + maybe name
+        if (!firstUserFinalRef.current) firstUserFinalRef.current = m.transcript!;
+        tryNameChat();
+      
+        setMessages(prev => {
           const last = prev[prev.length - 1];
           if (last && last.role === "user" && last.text === m.transcript) return prev;
           return [...prev, { id: rid(), role: "user", text: m.transcript! }];
         });
         if (!designMode && chatId) {
-            appendFinalMessage(chatId, m.role as "user" | "assistant", m.transcript!);
-          }
+          appendFinalMessage(chatId, "user", m.transcript!);
+        }
         hadAnyVoice.current = true;
         setLiveUser("");
         currentUserId.current = null;
@@ -229,7 +260,7 @@ export default function VapiDock() {
         client.stop();
       } catch {}
     };
-  }, [apiKey, designMode, liveAssistant, chatId]);
+  }, [apiKey, designMode, chatId]);
 
   // auto-start once (design mode OR once vapi is ready)
   React.useEffect(() => {
