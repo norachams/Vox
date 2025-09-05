@@ -1,3 +1,5 @@
+import { smartTitle } from "@/lib/smartTitle";
+
 export type ChatSummary = {
     id: string;
     title: string;
@@ -23,11 +25,20 @@ export type ChatSummary = {
     if (typeof window === "undefined") return null;
     try { return window.localStorage; } catch { return null; }
   }
+
+  const isDefaultTitle = (t: string) => {
+    if (!t) return true;
+    const s = t.trim().toLowerCase();
+    // treat these as placeholders we’re allowed to replace
+    return s === "New Chat" || s.startsWith("new chat") || /^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(s);
+  };
+  
   
   /** Utilities */
   const nowISO = () => new Date().toISOString();
   const rid = () => (globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2));
-  
+
+    
   /** CHATS LIST */
   export function listChats(): ChatSummary[] {
     const ls = getLS();
@@ -65,7 +76,7 @@ export type ChatSummary = {
     const createdAt = nowISO();
     const chat: ChatSummary = {
       id,
-      title: initialTitle || `${new Date().toLocaleDateString()}`,
+      title: initialTitle || "New Chat",
       createdAt,
       updatedAt: createdAt,
       durationSec: 0,
@@ -91,7 +102,14 @@ export type ChatSummary = {
       if (role === "assistant" && text.trim()) {
         c.lastMessagePreview = text.length > 120 ? text.slice(0, 120) + "…" : text;
       }
-      // move to top
+     
+      if (isDefaultTitle(c.title)) {
+        const firstUser = msgs.find(m => m.role === "user")?.text || "";
+        const firstAssistant = msgs.find(m => m.role === "assistant")?.text || "";
+        const t = smartTitle(firstUser, firstAssistant)?.trim();
+        if (t) c.title = t; 
+      }
+
       const next = [c, ...chats.filter(x => x.id !== chatId)];
       saveChats(next);
     }
@@ -129,6 +147,4 @@ export type ChatSummary = {
   }
   
 
-  export function isDefaultTitle(c: ChatSummary) {
-    return c.title === new Date(c.createdAt).toLocaleDateString();
-  }
+  

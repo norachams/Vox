@@ -150,7 +150,7 @@ export default function Onboarding() {
                   key={c.id}
                   className="relative rounded-2xl bg-white/90 border border-black/5 shadow-sm p-5"
                 >
-                  {/* Menu area wraps button + dropdown so outside-click logic works */}
+                  {/* Menu and dropdown*/}
                   <div ref={isMenuOpen ? menuAreaRef : null} className="absolute top-3 right-3 z-50">
                     <button
                       onClick={(e) => {
@@ -189,7 +189,7 @@ export default function Onboarding() {
                     )}
                   </div>
 
-                  {/* Row 1: Title (inline edit). Date is NOT here */}
+                  {/* Title  */}
                   {isEditing ? (
                     <input
                       ref={editRef}
@@ -212,7 +212,7 @@ export default function Onboarding() {
                     </div>
                   )}
 
-                  {/* Row 2: Preview (left) + Friendly date (right) on the SAME baseline */}
+                  {/*  Date  */}
                   <div className="mt-2 flex items-baseline justify-between gap-4">
                     <div className="text-neutral text-sm truncate">
                       {c.lastMessagePreview || ""}
@@ -220,7 +220,7 @@ export default function Onboarding() {
                     <div className="text-sm text-neutral shrink-0">{formatWhen(c.updatedAt)}</div>
                   </div>
 
-                  {/* Row 3: Actions */}
+                  {/*  Continue Button */}
                   <div className="mt-4 flex items-center gap-3">
                     <button
                       onClick={() => openChat(c.id)}

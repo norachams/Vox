@@ -5,11 +5,7 @@ import { Mic, MicOff, Captions, X } from "lucide-react";
 import TalkingBlob from "@/components/TalkingBlob";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter,useParams,useSearchParams } from "next/navigation";
-import { appendFinalMessage,finalizeDuration,deleteChat,renameChat,listMessages } from "@/lib/vozStorage";
-import { smartTitle } from "@/lib/smartTitle";
-
-
-
+import { appendFinalMessage,finalizeDuration,deleteChat,listMessages } from "@/lib/vozStorage";
 
 type Msg = { id: string; role: "user" | "assistant"; text: string };
 type VapiMessage = {
@@ -45,7 +41,6 @@ export default function VapiDock() {
 
   
   const endAndExit = () => {
-    
     if (!finalizedRef.current) {
       finalizedRef.current = true;
   
@@ -57,11 +52,12 @@ export default function VapiDock() {
           deleteChat(chatId);
         } else {
           const durSec = started ? Math.max(0, Math.round((Date.now() - started) / 1000)) : 0;
-          const keep = hadAnyVoice.current && durSec >= MIN_SAVE_SECONDS;
-          if (keep) {
-            finalizeDuration(chatId, durSec);
-          } else {
+          const shouldDelete = isNewChatRef.current && (!hadAnyVoice.current || durSec < MIN_SAVE_SECONDS);
+          if (shouldDelete) {
             deleteChat(chatId);
+          } else {
+            // keep existing chats always; for new chats keep if it passed the rule
+            finalizeDuration(chatId, durSec);
           }
         }
       }
@@ -113,10 +109,7 @@ export default function VapiDock() {
   const MIN_SAVE_SECONDS = 10;                 
   const finalizedRef = React.useRef(false);    
 
-  const hasNamedRef = React.useRef(false); 
-  const firstUserFinalRef = React.useRef<string | null>(null);
-  const firstAssistantFinalRef = React.useRef<string | null>(null);
-
+  const isNewChatRef = React.useRef(false);
 
   const { chatId } = useParams<{ chatId: string }>();
 
@@ -128,24 +121,11 @@ export default function VapiDock() {
       // normalize to your Msg shape
       setMessages(past.map(m => ({ id: m.id, role: m.role, text: m.text })));
     }
+    isNewChatRef.current = past.length === 0;
     // open captions automatically if requested or if there is history
     if (wantCaptions || past.length) setCaptionsOn(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId]);
-
-
-  const tryNameChat = React.useCallback(() => {
-    if (hasNamedRef.current || !chatId) return;
-    const title = smartTitle(
-      firstUserFinalRef.current ?? "",
-      firstAssistantFinalRef.current ?? ""
-    );
-    if (title?.trim()) {
-      renameChat(chatId, title.trim());
-      hasNamedRef.current = true;
-    }
-  }, [chatId]);
-  
 
   React.useEffect(() => {
     const el = scrollRef.current;
@@ -166,9 +146,6 @@ export default function VapiDock() {
       callStartedAtMs.current = Date.now(); 
       hadAnyVoice.current = false;  
       finalizedRef.current = false; 
-      hasNamedRef.current = false;
-      firstUserFinalRef.current = null;
-      firstAssistantFinalRef.current = null;       
     });
 
     client.on("call-end", () => {
@@ -185,11 +162,12 @@ export default function VapiDock() {
     
         if (!designMode && chatId && started) {
           const durSec = Math.max(0, Math.round((Date.now() - started) / 1000));
-          const keep = hadAnyVoice.current && durSec >= MIN_SAVE_SECONDS;
-          if (keep) {
-            finalizeDuration(chatId, durSec);
-          } else {
+          const shouldDelete = isNewChatRef.current && (!hadAnyVoice.current || durSec < MIN_SAVE_SECONDS);
+          if (shouldDelete) {
             deleteChat(chatId);
+          } else {
+            // keep existing chats always; for new chats keep if it passed the rule
+            finalizeDuration(chatId, durSec);
           }
         }
       } finally {
@@ -202,9 +180,6 @@ export default function VapiDock() {
       hadAnyVoice.current = true;
     });
 
-
-
-    // When speech ends, if we never got a "final" flag, commit the live bubble
     client.on("speech-end", () => {
       setSpeaking(false);
       setMessages((prev) => {
@@ -234,10 +209,6 @@ export default function VapiDock() {
         }
 
         if (isFinal) {
-          // capture first assistant final + maybe name
-          if (!firstAssistantFinalRef.current) firstAssistantFinalRef.current = m.transcript!;
-          tryNameChat();
-        
           setMessages(prev => {
             const last = prev[prev.length - 1];
             if (last && last.role === "assistant" && last.text === m.transcript) return prev;
@@ -260,10 +231,6 @@ export default function VapiDock() {
         currentUserId.current = m.utteranceId;
       }
       if (isFinal) {
-        // capture first user final + maybe name
-        if (!firstUserFinalRef.current) firstUserFinalRef.current = m.transcript!;
-        tryNameChat();
-      
         setMessages(prev => {
           const last = prev[prev.length - 1];
           if (last && last.role === "user" && last.text === m.transcript) return prev;
@@ -285,7 +252,6 @@ export default function VapiDock() {
     };
   }, [apiKey, designMode, chatId]);
 
-  // auto-start once (design mode OR once vapi is ready)
   React.useEffect(() => {
     if (autostartedRef.current) return;
     if (designMode || vapi) {
@@ -297,7 +263,6 @@ export default function VapiDock() {
 
   function buildRecap(msgs: Msg[]) {
     if (!msgs.length) return "";
-    // take last ~6 bubbles and compress; keep it short to avoid rambling
     const last = msgs.slice(-6).map(m => `${m.role === "user" ? "User" : "AI"}: ${m.text}`).join(" | ");
     return `Quick recap of our last session: ${last}. Please pick up where we left off.`;
   }
@@ -312,13 +277,10 @@ export default function VapiDock() {
     }
     if (!vapi || !assistantId) return;
     await vapi.start(assistantId);
-    // If we came from "Continue", give the model a quick recap
   if (resume) {
     const recap = buildRecap(messagesRef.current);
     if (recap) {
       try {
-        // Vapi supports sending text input to the assistant
-        // (If your SDK version differs, this no-op won't break anything.)
         vapi.send({ type: "say", message: recap });
       } catch {}
     }
@@ -479,7 +441,6 @@ const toggleMute = () => setMicMuted(!muted);
             </motion.div>
           )}
           </AnimatePresence>
-          
        </motion.div>
       </div>
     </div>
