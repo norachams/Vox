@@ -103,10 +103,10 @@ export type ChatSummary = {
     const chats = listChats();
     const idx = chats.findIndex(c => c.id === chatId);
     if (idx < 0) return;
-    const c = { ...chats[idx], title, updatedAt: nowISO() };
-    const next = [c, ...chats.filter(x => x.id !== chatId)];
-    saveChats(next);
+    chats[idx] = { ...chats[idx], title };   
+    saveChats(chats);
   }
+
   
   /** Finalize duration on end */
   export function finalizeDuration(chatId: string, durationSec: number) {
